@@ -58,7 +58,7 @@ export async function runStart(
           deploymentId,
           state: "in_progress",
           description: target.description,
-          logUrl: target.logUrl ?? context.runUrl,
+          logUrl: target.logUrl ?? (context.runUrl || undefined),
         });
         return {
           environment: target.environment,

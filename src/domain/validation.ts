@@ -38,6 +38,12 @@ function isValidEnvironment(value: string): boolean {
 }
 
 function isAbsoluteHttpUrl(value: string): boolean {
+  if (value !== value.trim()) {
+    return false;
+  }
+  if (WHITESPACE_RE.test(value)) {
+    return false;
+  }
   let parsed: URL;
   try {
     parsed = new URL(value);
@@ -207,10 +213,11 @@ function parseTargets(rawTargets: string | undefined, issues: string[]): Target[
     if (out.length > before) {
       const environment = out[out.length - 1]?.environment;
       if (environment !== undefined) {
-        if (seenEnvironments.has(environment)) {
+        const folded = environment.toLowerCase();
+        if (seenEnvironments.has(folded)) {
           issues.push(`targets[${i}].environment: duplicate environment "${environment}"`);
         } else {
-          seenEnvironments.add(environment);
+          seenEnvironments.add(folded);
         }
       }
     }
@@ -279,11 +286,19 @@ export function parseInputs(args: ParseInputsArgs): Config {
 
   let ref: string | undefined;
   if (mode !== "deactivate") {
-    const resolved = resolveRef(raw.ref, context);
-    if (resolved !== undefined && isValidRef(resolved)) {
-      ref = SHA_RE.test(resolved) ? resolved.toLowerCase() : resolved;
+    const isPullRequest =
+      context.eventName === "pull_request" || context.eventName === "pull_request_target";
+    const headMissing = context.headSha === undefined || context.headSha === "";
+    const refMissing = raw.ref === undefined || raw.ref === "";
+    if (isPullRequest && headMissing && refMissing) {
+      issues.push("ref: could not resolve the pull request head commit; pass ref explicitly");
     } else {
-      issues.push("ref: must be a 40-char SHA or a valid ref name");
+      const resolved = resolveRef(raw.ref, context);
+      if (resolved !== undefined && isValidRef(resolved)) {
+        ref = SHA_RE.test(resolved) ? resolved.toLowerCase() : resolved;
+      } else {
+        issues.push("ref: must be a 40-char SHA or a valid ref name");
+      }
     }
   }
 

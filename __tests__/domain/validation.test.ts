@@ -158,6 +158,58 @@ describe("parseInputs ref resolution", () => {
     expect(config.ref).toBeUndefined();
     expect(config.targets).toEqual([]);
   });
+
+  it("pull_request without headSha and start throws instead of using the merge sha", () => {
+    expect(
+      issuesOf(() =>
+        parseInputs({
+          raw: startRaw(),
+          context: { ...baseContext, eventName: "pull_request", sha: "m".repeat(40) },
+        }),
+      ),
+    ).toEqual(["ref: could not resolve the pull request head commit; pass ref explicitly"]);
+  });
+
+  it("pull_request_target without headSha and finish throws", () => {
+    expect(
+      issuesOf(() =>
+        parseInputs({
+          raw: {
+            mode: "finish",
+            group: "g",
+            targets: '[{"environment":"preview"}]',
+            status: "success",
+          },
+          context: { ...baseContext, eventName: "pull_request_target", sha: "m".repeat(40) },
+        }),
+      ),
+    ).toEqual(["ref: could not resolve the pull request head commit; pass ref explicitly"]);
+  });
+
+  it("pull_request without headSha and deactivate does not throw", () => {
+    const config = parseInputs({
+      raw: { mode: "deactivate", group: "g" },
+      context: { ...baseContext, eventName: "pull_request", sha: "m".repeat(40) },
+    });
+    expect(config.ref).toBeUndefined();
+  });
+
+  it("pull_request without headSha but with explicit ref does not throw", () => {
+    const explicit = "c".repeat(40);
+    const config = parseInputs({
+      raw: startRaw({ ref: explicit }),
+      context: { ...baseContext, eventName: "pull_request", sha: "m".repeat(40) },
+    });
+    expect(config.ref).toBe(explicit);
+  });
+
+  it("workflow_dispatch without headSha still uses context.sha", () => {
+    const config = parseInputs({
+      raw: startRaw(),
+      context: { ...baseContext, eventName: "workflow_dispatch" },
+    });
+    expect(config.ref).toBe("a".repeat(40));
+  });
 });
 
 describe("parseInputs validation", () => {
@@ -424,6 +476,51 @@ describe("parseInputs validation", () => {
         }),
       ),
     ).toEqual(['targets[2].environment: duplicate environment "pr-preview"']);
+  });
+
+  it("rejects case-insensitive duplicate environments", () => {
+    expect(
+      issuesOf(() =>
+        parseInputs({
+          raw: {
+            ...okStart,
+            targets: '[{"environment":"Production"},{"environment":"production"}]',
+          },
+          context,
+        }),
+      ),
+    ).toEqual(['targets[1].environment: duplicate environment "production"']);
+  });
+
+  it("rejects whitespace-padded and whitespace-containing URLs", () => {
+    for (const url of [
+      " https://example.com/a",
+      "https://example.com/abc ",
+      "https://example.com/a\tb",
+      "https://example.com/a\nb",
+    ]) {
+      expect(
+        issuesOf(() =>
+          parseInputs({
+            raw: { ...okStart, targets: `[{"environment":"e","url":${JSON.stringify(url)}}]` },
+            context,
+          }),
+        ),
+      ).toEqual(["targets[0].url: must be absolute http(s)"]);
+    }
+    for (const logUrl of [" https://example.com/a", "https://example.com/abc "]) {
+      expect(
+        issuesOf(() =>
+          parseInputs({
+            raw: {
+              ...okStart,
+              targets: `[{"environment":"e","logUrl":${JSON.stringify(logUrl)}}]`,
+            },
+            context,
+          }),
+        ),
+      ).toEqual(["targets[0].logUrl: must be absolute http(s)"]);
+    }
   });
 
   it("rejects non-string descriptions without coercion", () => {

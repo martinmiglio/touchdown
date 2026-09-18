@@ -153,6 +153,17 @@ describe("main", () => {
     expect(message).toContain("***");
   });
 
+  it("redacts the token from resolved-mode error results while preserving ordinary URLs", async () => {
+    const errors = [`deploy ${TOKEN} failed: see https://example.com/logs/9`];
+    const { io } = await loadMain(startInputs(), { ...CLEAN_RESULT, errors });
+
+    expect(io.fail).toHaveBeenCalledTimes(1);
+    const message = vi.mocked(io.fail).mock.calls[0]?.[0] as string;
+    expect(message).not.toContain(TOKEN);
+    expect(message).toContain("***");
+    expect(message).toContain("https://example.com/logs/9");
+  });
+
   it("preserves ordinary URLs in failure messages while stripping userinfo", async () => {
     const { io } = await loadMain(
       startInputs(),

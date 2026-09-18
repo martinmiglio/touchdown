@@ -37392,8 +37392,11 @@ async function withRetry(fn, opts) {
 
 function readRunContext() {
     const { owner, repo } = github_context.repo;
-    const runUrl = `${process.env["GITHUB_SERVER_URL"]}/${owner}/${repo}` +
-        `/actions/runs/${process.env["GITHUB_RUN_ID"]}`;
+    const serverUrl = process.env["GITHUB_SERVER_URL"];
+    const runId = process.env["GITHUB_RUN_ID"];
+    const runUrl = serverUrl !== undefined && serverUrl !== "" && runId !== undefined && runId !== ""
+        ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+        : "";
     const headSha = github_context.payload?.pull_request
         ?.head?.sha;
     return {
@@ -37418,27 +37421,29 @@ function createStore(token, owner, repo) {
     const octokit = getOctokit(token);
     return {
         async listDeployments(filter) {
-            // Only the network fetch is retried. The cap breach is raised outside
-            // withRetry so it fails fast instead of re-listing 10 pages per attempt.
+            // Only the raw network pagination runs inside withRetry. Row mapping
+            // (toListed throws on malformed rows) and the cap check run outside so
+            // non-retryable failures fail fast instead of re-listing pages.
             const params = filter.environment !== undefined
                 ? { owner, repo, per_page: PAGE_SIZE, environment: filter.environment }
                 : { owner, repo, per_page: PAGE_SIZE };
-            const { items, capped } = await withRetry(async () => {
+            const rawPages = await withRetry(async () => {
                 const iterator = octokit.paginate.iterator(octokit.rest.repos.listDeployments, params);
-                const out = [];
-                let pages = 0;
-                let capped = false;
+                const raw = [];
                 for await (const page of iterator) {
-                    pages += 1;
-                    for (const row of page.data)
-                        out.push(toListed(row));
-                    if (pages >= MAX_PAGES) {
-                        capped = /<[^<>]+>;\s*rel="next"/.test(page.headers.link ?? "");
+                    raw.push(page);
+                    if (raw.length >= MAX_PAGES)
                         break;
-                    }
                 }
-                return { items: out, capped };
+                return raw;
             });
+            const items = [];
+            for (const page of rawPages) {
+                for (const row of page.data)
+                    items.push(toListed(row));
+            }
+            const last = rawPages[rawPages.length - 1];
+            const capped = rawPages.length >= MAX_PAGES && /<[^<>]+>;\s*rel="next"/.test(last?.headers.link ?? "");
             if (capped) {
                 throw new PaginationCapError(`listDeployments exceeded the ${MAX_PAGES}-page cap for ` +
                     `${owner}/${repo} (environment: ${filter.environment ?? "all"})`);
@@ -47020,6 +47025,12 @@ function isValidEnvironment(value) {
     return true;
 }
 function isAbsoluteHttpUrl(value) {
+    if (value !== value.trim()) {
+        return false;
+    }
+    if (WHITESPACE_RE.test(value)) {
+        return false;
+    }
     let parsed;
     try {
         parsed = new URL(value);
@@ -47166,11 +47177,12 @@ function parseTargets(rawTargets, issues) {
         if (out.length > before) {
             const environment = out[out.length - 1]?.environment;
             if (environment !== undefined) {
-                if (seenEnvironments.has(environment)) {
+                const folded = environment.toLowerCase();
+                if (seenEnvironments.has(folded)) {
                     issues.push(`targets[${i}].environment: duplicate environment "${environment}"`);
                 }
                 else {
-                    seenEnvironments.add(environment);
+                    seenEnvironments.add(folded);
                 }
             }
         }
@@ -47230,12 +47242,20 @@ function parseInputs(args) {
     }
     let ref;
     if (mode !== "deactivate") {
-        const resolved = resolveRef(raw.ref, context);
-        if (resolved !== undefined && isValidRef(resolved)) {
-            ref = SHA_RE.test(resolved) ? resolved.toLowerCase() : resolved;
+        const isPullRequest = context.eventName === "pull_request" || context.eventName === "pull_request_target";
+        const headMissing = context.headSha === undefined || context.headSha === "";
+        const refMissing = raw.ref === undefined || raw.ref === "";
+        if (isPullRequest && headMissing && refMissing) {
+            issues.push("ref: could not resolve the pull request head commit; pass ref explicitly");
         }
         else {
-            issues.push("ref: must be a 40-char SHA or a valid ref name");
+            const resolved = resolveRef(raw.ref, context);
+            if (resolved !== undefined && isValidRef(resolved)) {
+                ref = SHA_RE.test(resolved) ? resolved.toLowerCase() : resolved;
+            }
+            else {
+                issues.push("ref: must be a 40-char SHA or a valid ref name");
+            }
         }
     }
     let status;
@@ -47388,7 +47408,7 @@ async function runFinish(config, context, store, io) {
                 deploymentId: current.id,
                 state,
                 description: target.description,
-                logUrl: target.logUrl ?? context.runUrl,
+                logUrl: target.logUrl ?? (context.runUrl || undefined),
                 ...(state === "success" && target.url !== undefined
                     ? { environmentUrl: target.url }
                     : {}),
@@ -47471,7 +47491,7 @@ async function runStart(config, context, store, io) {
                 deploymentId,
                 state: "in_progress",
                 description: target.description,
-                logUrl: target.logUrl ?? context.runUrl,
+                logUrl: target.logUrl ?? (context.runUrl || undefined),
             });
             return {
                 environment: target.environment,

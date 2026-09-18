@@ -5,10 +5,10 @@ Companion to `product.md`. This is the shape of the thing we build.
 ## Runtime & packaging
 
 - JavaScript action: `runs.using: node24`, `main: dist/index.js`.
-- TypeScript source in `src/`, bundled with `@vercel/ncc@0.45.0` to a single committed `dist/index.js`: `ncc build src/main.ts -o dist --source-map --license licenses.txt`.
+- TypeScript source in `src/`, bundled with `@vercel/ncc@0.45.0` to a single committed `dist/index.js`: `ncc build src/index.ts -o dist --source-map --license licenses.txt`.
 - `"type": "module"`; `tsconfig` `module: NodeNext`, `moduleResolution: NodeNext`, `target: ES2022`.
 - Commit `dist/package.json` = `{"type":"module"}`.
-- **No top-level `await` in `src/main.ts`.**
+- **No top-level `await`: `src/index.ts` is the entrypoint and does nothing but `void run()`; `src/main.ts` exports `run()` and has no top-level await.**
 - Contingency: if Gate C cannot smoke-run `dist/index.js`, flip to Option B (`@actions/core@2.0.3`, `@actions/github@8.0.1`, `module: commonjs`, no `type: module`) — a config flip, not a rewrite.
 - Runtime dependencies, exact-pinned: `@actions/core`, `@actions/github` (Octokit), `zod` (v4). Nothing else.
 - `package-lock.json` committed; `node_modules` never committed.
@@ -133,7 +133,7 @@ There is no rollback: partial writes stand.
 - `environment`: 1–255 chars, non-empty, no control characters (`[\u0000-\u001f\u007f]`), no leading or trailing whitespace. We deliberately do **not** enforce a charset allowlist: GitHub documents none, real environment names contain spaces and Unicode, and safety comes from the ownership stamp, not the name. (`github-pages` is reserved by GitHub Pages; document, do not special-case.)
 - `ref` is validated but stored and compared **literally**; the action never resolves it.
 - `group`: 1–128 chars, `^[A-Za-z0-9._:/-]+$`.
-- `ref`: 40-hex SHA, or safe refname `^[A-Za-z0-9._/-]+$` with `..`, `~`, `^`, `:`, `?`, `*`, `[`, control chars, and leading `-`/`/` rejected.
+- `ref`: 40-hex SHA (normalized to lowercase), or safe refname (branch/tag refnames keep their case). Refnames are validated with a denylist: `..`, `~`, `^`, `:`, `?`, `*`, `[`, `@{`, control chars, leading `-`/`/`, and trailing `.` or whitespace are rejected.
 - `url` / `logUrl`: empty/absent, or absolute `http(s)` with no userinfo. No network validation.
 - `description`: the 140-char limit is on the **deployment status** description. The `description` input is truncated to 140 with a warning when posted as a status; the deployment's own `description` is not constrained (we do not set it).
 - Unknown keys in a target object: error.

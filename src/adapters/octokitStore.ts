@@ -22,9 +22,12 @@ interface PageLike {
 
 export function readRunContext(): RunContext {
   const { owner, repo } = context.repo;
+  const serverUrl = process.env["GITHUB_SERVER_URL"];
+  const runId = process.env["GITHUB_RUN_ID"];
   const runUrl =
-    `${process.env["GITHUB_SERVER_URL"]}/${owner}/${repo}` +
-    `/actions/runs/${process.env["GITHUB_RUN_ID"]}`;
+    serverUrl !== undefined && serverUrl !== "" && runId !== undefined && runId !== ""
+      ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+      : "";
   const headSha = (context.payload as { pull_request?: { head?: { sha?: unknown } } })?.pull_request
     ?.head?.sha;
   return {
@@ -61,30 +64,32 @@ export function createStore(token: string, owner: string, repo: string): Deploym
 
   return {
     async listDeployments(filter: ListFilter): Promise<ListedDeployment[]> {
-      // Only the network fetch is retried. The cap breach is raised outside
-      // withRetry so it fails fast instead of re-listing 10 pages per attempt.
+      // Only the raw network pagination runs inside withRetry. Row mapping
+      // (toListed throws on malformed rows) and the cap check run outside so
+      // non-retryable failures fail fast instead of re-listing pages.
       const params =
         filter.environment !== undefined
           ? { owner, repo, per_page: PAGE_SIZE, environment: filter.environment }
           : { owner, repo, per_page: PAGE_SIZE };
-      const { items, capped } = await withRetry(async () => {
+      const rawPages = await withRetry(async () => {
         const iterator = octokit.paginate.iterator(
           octokit.rest.repos.listDeployments,
           params,
         ) as unknown as AsyncIterable<PageLike>;
-        const out: ListedDeployment[] = [];
-        let pages = 0;
-        let capped = false;
+        const raw: PageLike[] = [];
         for await (const page of iterator) {
-          pages += 1;
-          for (const row of page.data) out.push(toListed(row));
-          if (pages >= MAX_PAGES) {
-            capped = /<[^<>]+>;\s*rel="next"/.test(page.headers.link ?? "");
-            break;
-          }
+          raw.push(page);
+          if (raw.length >= MAX_PAGES) break;
         }
-        return { items: out, capped };
+        return raw;
       });
+      const items: ListedDeployment[] = [];
+      for (const page of rawPages) {
+        for (const row of page.data) items.push(toListed(row));
+      }
+      const last = rawPages[rawPages.length - 1];
+      const capped =
+        rawPages.length >= MAX_PAGES && /<[^<>]+>;\s*rel="next"/.test(last?.headers.link ?? "");
       if (capped) {
         throw new PaginationCapError(
           `listDeployments exceeded the ${MAX_PAGES}-page cap for ` +

@@ -55,7 +55,7 @@ export async function runFinish(
           deploymentId: current.id,
           state,
           description: target.description,
-          logUrl: target.logUrl ?? context.runUrl,
+          logUrl: target.logUrl ?? (context.runUrl || undefined),
           ...(state === "success" && target.url !== undefined
             ? { environmentUrl: target.url }
             : {}),

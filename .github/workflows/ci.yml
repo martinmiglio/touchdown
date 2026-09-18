@@ -18,6 +18,7 @@ jobs:
       - run: npm run lint
       - run: npx vitest run --coverage
       - name: actionlint
+        # Downloads are version-pinned and fetched over TLS from the upstream release; checksum verification was deliberately not added (hashes would come from the same origin).
         run: |
           curl -sSfL -o actionlint.tar.gz \
             https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
@@ -25,10 +26,11 @@ jobs:
           ./actionlint -color
         shell: bash
       - name: validate action.yml
+        # Downloads are version-pinned and fetched over TLS from the upstream release; checksum verification was deliberately not added (hashes would come from the same origin).
         run: |
-          curl -sSfL -o action-validator.tar.gz \
-            https://github.com/mpalmer/action-validator/releases/download/v0.9.0/action-validator_linux_amd64.tar.gz
-          tar -xzf action-validator.tar.gz action-validator
+          curl -sSfL -o action-validator \
+            https://github.com/mpalmer/action-validator/releases/download/v0.9.0/action-validator_linux_amd64
+          chmod +x action-validator
           ./action-validator action.yml
         shell: bash
 
