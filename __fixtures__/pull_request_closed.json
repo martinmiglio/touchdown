@@ -1,0 +1,12 @@
+{
+  "name": "pull_request_closed",
+  "eventName": "pull_request",
+  "sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "headSha": "dddddddddddddddddddddddddddddddddddddddd",
+  "runUrl": "https://github.com/o/r/actions/runs/3",
+  "raw": {
+    "mode": "deactivate",
+    "group": "pr:123"
+  },
+  "expected": {}
+}

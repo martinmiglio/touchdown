@@ -1,0 +1,60 @@
+name: touchdown
+description: Correct GitHub deployment records — start, finish, deactivate. Recorder, not a deployer.
+author: martinmiglio
+
+inputs:
+  mode:
+    description: "One of: start, finish, deactivate."
+    required: true
+  group:
+    description: "Lifecycle key, e.g. pr:123 or prod. Scopes reuse, retire, and deactivate."
+    required: true
+  targets:
+    description: >-
+      JSON array of {"environment": string, "url"?: string, "logUrl"?: string, "description"?: string}.
+      Required for start and finish; ignored by deactivate.
+    required: false
+  ref:
+    description: "Commit SHA or refname. Defaults to pull_request.head.sha on PRs, else github.sha."
+    required: false
+  status:
+    description: "One of: success, failure, error, cancelled, skipped. Required for finish."
+    required: false
+  transient:
+    description: "Mark created deployments as transient environments."
+    required: false
+    default: "false"
+  production:
+    description: "Mark created deployments as production environments."
+    required: false
+    default: "false"
+  reuse:
+    description: "Reuse an existing owned (environment, ref, group) deployment instead of creating one."
+    required: false
+    default: "true"
+  retire:
+    description: "On finish success, mark prior owned deployments in scope inactive."
+    required: false
+    default: "true"
+  retire-production:
+    description: "Allow retirement of production deployments. Off by default."
+    required: false
+    default: "false"
+  fail-on-error:
+    description: "true stops at the first internal error; false attempts all targets then fails with all errors."
+    required: false
+    default: "true"
+  token:
+    description: "Token with deployments: write."
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  deployments:
+    description: 'JSON string: [{"environment","url","deploymentId","statusId"}]'
+  retired:
+    description: "JSON string of deployment ids marked inactive."
+
+runs:
+  using: node24
+  main: dist/index.js

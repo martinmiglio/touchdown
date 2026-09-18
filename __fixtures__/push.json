@@ -1,0 +1,14 @@
+{
+  "name": "push",
+  "eventName": "push",
+  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "runUrl": "https://github.com/o/r/actions/runs/1",
+  "raw": {
+    "mode": "start",
+    "group": "prod",
+    "targets": "[{\"environment\":\"production\"}]"
+  },
+  "expected": {
+    "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "invalid_targets",
+  "eventName": "push",
+  "sha": "1111111111111111111111111111111111111111",
+  "runUrl": "https://github.com/o/r/actions/runs/6",
+  "raw": {
+    "mode": "start",
+    "group": "prod",
+    "targets": "[{\"environment\":\"\"},{\"environment\":\"ok\",\"url\":\"not-a-url\"}]"
+  },
+  "expected": {
+    "issues": [
+      "targets[0].environment: must be 1-255 chars with no control characters or leading/trailing whitespace",
+      "targets[1].url: must be absolute http(s)"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+min_version: 2.1.14
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      glob: "*.{ts,tsx,js,mjs,cjs,json,yml,yaml,md}"
+      exclude: ["dist/**", "package-lock.json"]
+      run: npx oxfmt --check {staged_files}
+    - name: lint
+      glob: "*.{ts,tsx,js,mjs,cjs}"
+      exclude: ["dist/**", "package-lock.json"]
+      run: npx oxlint {staged_files}
+pre-push:
+  jobs:
+    - name: types
+      run: npx tsc --noEmit
+    - name: lint
+      run: npx oxlint src __tests__
+    - name: format
+      run: npx oxfmt --check src __tests__ __fixtures__ README.md readme.md product.md spec.md action.yml package.json tsconfig.json vitest.config.ts lefthook.yml .oxlintrc.json .oxfmtrc.json .github scripts
+    - name: test
+      run: npx vitest run
+    - name: workflows
+      run: |
+        if command -v actionlint >/dev/null 2>&1; then
+          actionlint
+        else
+          echo "actionlint not installed locally, skipping (CI runs it)"
+        fi

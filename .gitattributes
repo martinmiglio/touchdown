@@ -1,0 +1,6 @@
+# The committed ncc bundle is required for the action to run, but it is
+# generated. Collapse it in diffs and exclude it from language stats.
+dist/** linguist-generated=true
+# These are single-line, multi-megabyte files; do not render them as diffs.
+dist/index.js.map -diff
+dist/sourcemap-register.cjs -diff

@@ -1,0 +1,15 @@
+{
+  "name": "workflow_dispatch",
+  "eventName": "workflow_dispatch",
+  "sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "runUrl": "https://github.com/o/r/actions/runs/4",
+  "raw": {
+    "mode": "start",
+    "group": "manual",
+    "ref": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "targets": "[{\"environment\":\"staging\"}]"
+  },
+  "expected": {
+    "ref": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}
