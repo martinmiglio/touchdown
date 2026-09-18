@@ -1,0 +1,22 @@
+min_version: 2.1.14
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      glob: "*.{ts,tsx,js,mjs,cjs,json,yml,yaml,md}"
+      run: npx oxfmt --check {staged_files}
+    - name: lint
+      glob: "*.{ts,tsx,js,mjs,cjs}"
+      run: npx oxlint {staged_files}
+pre-push:
+  jobs:
+    - name: types
+      run: npx tsc --noEmit
+    - name: lint
+      run: npx oxlint .
+    - name: format
+      run: npx oxfmt --check .
+    - name: test
+      run: npx vitest run
+    - name: workflows
+      run: actionlint
