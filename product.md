@@ -31,9 +31,9 @@ Not a deployer. No build, no cloud/runner knowledge, no PR comments, no environm
 - **F1** `start` creates one deployment per target for the resolved ref, then immediately posts `in_progress` with the run URL as `log_url` and a description. Honours `transient` / `production`.
 - **F2** `finish` posts a terminal status from the **explicit** `status` input — never inferred from step context. `cancelled` / `skipped` map to `error` via a documented, hardcoded table.
 - **F3** On success, `finish` sets `environment_url` (validated absolute `http(s)` URL) and `log_url`; truncates `description` to 140 characters.
-- **F4** `deactivate` marks every owned deployment matching `group` `inactive`; idempotent (zero matches → no-op, exit 0).
+- **F4** `deactivate` marks every owned deployment matching `group` `inactive`; idempotent (zero matches → no-op, exit 0). It is an explicit, caller-invoked, group-scoped teardown that acts across all environments for the group, so invoking it with a production-bearing group is itself the opt-in.
 - **F5** On `finish` success, retires prior owned deployments matching scope, **excluding the current one**.
-- **F6** Never retires `production` deployments unless explicitly opted in (`retire-production: true`).
+- **F6** Never retires `production` deployments on `finish` unless explicitly opted in (`retire-production: true`).
 - **F7** `sweep` mode for orphan reaping is deferred; not in v0.
 - **F8** One call handles N targets. `finish` applies a single `status` across all of them; per-target outcomes are deferred.
 
@@ -51,7 +51,7 @@ Not a deployer. No build, no cloud/runner knowledge, no PR comments, no environm
 ### Security
 
 - **S1** Ownership marker in `payload`; the action may only retire deployments it created. A bad `group` must never deactivate another tool's or a human's deployment.
-- **S2** Validate inputs: `environment` ≤255 chars + charset; `group` bounded; `ref` a valid SHA or refname; URL absolute `http(s)`. Reject, don't coerce.
+- **S2** Validate inputs: `environment` ≤255 chars, no control characters; `group` bounded; `ref` a valid SHA or refname; URL absolute `http(s)`. Reject, don't coerce.
 - **S3** No input is ever interpolated into a shell; API-first.
 - **S4** API-only. Never checks out or executes PR code; docs must not combine it with `pull_request_target` + checkout.
 - **S5** Minimal, pinned dependency surface + lockfile; no `curl | sh`.

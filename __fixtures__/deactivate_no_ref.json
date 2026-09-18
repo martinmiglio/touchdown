@@ -1,0 +1,11 @@
+{
+  "name": "deactivate_no_ref",
+  "eventName": "push",
+  "sha": "ffffffffffffffffffffffffffffffffffffffff",
+  "runUrl": "https://github.com/o/r/actions/runs/5",
+  "raw": {
+    "mode": "deactivate",
+    "group": "pr:456"
+  },
+  "expected": {}
+}

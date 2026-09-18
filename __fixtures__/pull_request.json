@@ -1,0 +1,15 @@
+{
+  "name": "pull_request",
+  "eventName": "pull_request",
+  "sha": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+  "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "runUrl": "https://github.com/o/r/actions/runs/2",
+  "raw": {
+    "mode": "start",
+    "group": "pr:123",
+    "targets": "[{\"environment\":\"pr-preview\"}]"
+  },
+  "expected": {
+    "ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

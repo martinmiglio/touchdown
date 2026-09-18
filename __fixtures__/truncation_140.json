@@ -1,0 +1,17 @@
+{
+  "name": "truncation_140",
+  "eventName": "push",
+  "sha": "2222222222222222222222222222222222222222",
+  "runUrl": "https://github.com/o/r/actions/runs/7",
+  "raw": {
+    "mode": "finish",
+    "group": "prod",
+    "status": "success",
+    "targets": "[{\"environment\":\"production\",\"description\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]"
+  },
+  "expected": {
+    "ref": "2222222222222222222222222222222222222222",
+    "truncated": true,
+    "descriptionLength": 140
+  }
+}
