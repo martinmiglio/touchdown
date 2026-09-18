@@ -1,0 +1,155 @@
+# NOTE: `workflow_dispatch` workflows only become triggerable once this file
+# exists on the default branch, so this self-test is usable after the PR that
+# adds it merges. It is dispatch-only by design: it writes real deployment
+# records against the live API and must never run on pull_request or push.
+name: integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    env:
+      GROUP: test:${{ github.run_id }}
+      ENV_NAME: touchdown-selftest
+    steps:
+      - name: Check out touchdown
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Start deployment
+        id: start
+        uses: ./
+        with:
+          mode: start
+          group: ${{ env.GROUP }}
+          targets: '[{"environment":"touchdown-selftest","url":"https://example.com/selftest"}]'
+          transient: true
+
+      - name: Assert start recorded an in_progress deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DEPLOYMENTS="$(gh api "repos/${{ github.repository }}/deployments?environment=touchdown-selftest&per_page=100")"
+          ID="$(echo "$DEPLOYMENTS" | jq -r --arg group "$GROUP" --arg env_name "$ENV_NAME" '
+            [ .[]
+              | select(.environment == $env_name
+                and ((.payload | if type == "string" then fromjson else . end)
+                  | .managed_by == "touchdown" and .group == $group))
+            ] | max_by(.id) | .id // empty')"
+          test -n "$ID"
+          STATUSES="$(gh api "repos/${{ github.repository }}/deployments/${ID}/statuses?per_page=100")"
+          echo "$STATUSES" | jq -e '.[0].state == "in_progress"'
+          echo "$STATUSES" | jq -e '[.[] | select(.log_url != null and .log_url != "")] | length > 0'
+
+      - name: Finish deployment
+        id: finish
+        uses: ./
+        with:
+          mode: finish
+          group: ${{ env.GROUP }}
+          targets: '[{"environment":"touchdown-selftest","url":"https://example.com/selftest"}]'
+          status: success
+
+      - name: Assert finish recorded success with environment_url
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FINISH_DEPLOYMENTS: ${{ steps.finish.outputs.deployments }}
+        run: |
+          set -euo pipefail
+          DEPLOYMENTS="$(gh api "repos/${{ github.repository }}/deployments?environment=touchdown-selftest&per_page=100")"
+          ID="$(echo "$DEPLOYMENTS" | jq -r --arg group "$GROUP" --arg env_name "$ENV_NAME" '
+            [ .[]
+              | select(.environment == $env_name
+                and ((.payload | if type == "string" then fromjson else . end)
+                  | .managed_by == "touchdown" and .group == $group))
+            ] | max_by(.id) | .id // empty')"
+          test -n "$ID"
+          STATUSES="$(gh api "repos/${{ github.repository }}/deployments/${ID}/statuses?per_page=100")"
+          echo "$STATUSES" | jq -e '.[0].state == "success"'
+          echo "$STATUSES" | jq -e --arg url "https://example.com/selftest" '.[0].environment_url == $url'
+          echo "$FINISH_DEPLOYMENTS" | jq -e --arg id "$ID" '[.[] | select((.deploymentId | tostring) == $id)] | length > 0'
+
+      # Retirement needs a prior deployment in the same environment+group that
+      # is NOT the deployment being finished. finish looks its target up by
+      # environment+ref+group (ambiguous matches fail closed) but retires by
+      # environment+group, so the prior is created under a different literal
+      # ref (the branch name) than the replacement (the default SHA ref).
+      - name: Start prior deployment (retirement group)
+        id: start-prior
+        uses: ./
+        with:
+          mode: start
+          group: ${{ env.GROUP }}:b
+          ref: ${{ github.event.repository.default_branch }}
+          targets: '[{"environment":"touchdown-selftest","url":"https://example.com/selftest"}]'
+          transient: true
+
+      - name: Start replacement deployment (retirement group)
+        id: start-b
+        uses: ./
+        with:
+          mode: start
+          group: ${{ env.GROUP }}:b
+          targets: '[{"environment":"touchdown-selftest","url":"https://example.com/selftest"}]'
+          transient: true
+
+      - name: Finish replacement deployment (retirement group)
+        id: finish-b
+        uses: ./
+        with:
+          mode: finish
+          group: ${{ env.GROUP }}:b
+          targets: '[{"environment":"touchdown-selftest","url":"https://example.com/selftest"}]'
+          status: success
+
+      - name: Assert prior deployment was retired
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRIOR_DEPLOYMENTS: ${{ steps.start-prior.outputs.deployments }}
+          RETIRED: ${{ steps.finish-b.outputs.retired }}
+        run: |
+          set -euo pipefail
+          PRIOR_ID="$(echo "$PRIOR_DEPLOYMENTS" | jq -r --arg env_name "$ENV_NAME" '
+            [.[] | select(.environment == $env_name)] | .[0].deploymentId // empty')"
+          test -n "$PRIOR_ID"
+          echo "$RETIRED" | jq -e --arg id "$PRIOR_ID" 'map(tostring) | index($id) != null'
+          PRIOR_STATUSES="$(gh api "repos/${{ github.repository }}/deployments/${PRIOR_ID}/statuses?per_page=100")"
+          echo "$PRIOR_STATUSES" | jq -e '.[0].state == "inactive"'
+
+      - name: Deactivate test group
+        if: ${{ always() }}
+        uses: ./
+        with:
+          mode: deactivate
+          group: ${{ env.GROUP }}
+
+      - name: Deactivate retirement group
+        if: ${{ always() }}
+        uses: ./
+        with:
+          mode: deactivate
+          group: ${{ env.GROUP }}:b
+
+      - name: Assert deactivate marked deployments inactive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for GROUP_FILTER in "$GROUP" "$GROUP:b"; do
+            IDS="$(gh api "repos/${{ github.repository }}/deployments?environment=touchdown-selftest&per_page=100" | jq -r --arg group "$GROUP_FILTER" --arg env_name "$ENV_NAME" '
+              .[]
+              | select(.environment == $env_name
+                and ((.payload | if type == "string" then fromjson else . end)
+                  | .managed_by == "touchdown" and .group == $group))
+              | .id')"
+            test -n "$IDS"
+            for ONE in $IDS; do
+              gh api "repos/${{ github.repository }}/deployments/${ONE}/statuses?per_page=100" | jq -e '.[0].state == "inactive"'
+            done
+          done

@@ -4,9 +4,11 @@ pre-commit:
   jobs:
     - name: format
       glob: "*.{ts,tsx,js,mjs,cjs,json,yml,yaml,md}"
+      exclude: ["dist/**", "package-lock.json"]
       run: npx oxfmt --check {staged_files}
     - name: lint
       glob: "*.{ts,tsx,js,mjs,cjs}"
+      exclude: ["dist/**", "package-lock.json"]
       run: npx oxlint {staged_files}
 pre-push:
   jobs:

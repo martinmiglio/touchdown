@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc --noEmit",
-    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt && node scripts/emit-dist-package.mjs",
+    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt && node scripts/emit-dist-package.mjs",
     "lint": "npm run build && oxlint src __tests__ && oxfmt --check src __tests__",
     "format": "oxfmt src __tests__",
     "test": "vitest run",
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/node": "24.13.5",
     "@vercel/ncc": "0.45.0",
+    "@vitest/coverage-v8": "5.0.1",
     "lefthook": "2.1.14",
     "oxfmt": "0.68.0",
     "oxlint": "1.83.0",

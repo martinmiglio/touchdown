@@ -19,7 +19,9 @@ jobs:
       - run: npx vitest run --coverage
       - name: actionlint
         run: |
-          bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12
+          curl -sSfL -o actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          tar -xzf actionlint.tar.gz actionlint
           ./actionlint -color
         shell: bash
       - name: validate action.yml
