@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  verify:
+  check:
     runs-on: ubuntu-latest
     steps:
       # actions/checkout@v7
@@ -34,7 +34,7 @@ jobs:
           ./action-validator action.yml
         shell: bash
 
-  smoke:
+  e2e:
     runs-on: ubuntu-latest
     permissions:
       contents: read
