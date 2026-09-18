@@ -6,9 +6,10 @@ Companion to `product.md`. This is the shape of the thing we build.
 
 - JavaScript action: `runs.using: node24`, `main: dist/index.js`.
 - TypeScript source in `src/`, bundled with `@vercel/ncc` to a single committed `dist/index.js` (+ sourcemap).
-- Runtime dependencies: `@actions/core` and `@actions/github` (Octokit) only.
+- Runtime dependencies, exact-pinned: `@actions/core`, `@actions/github` (Octokit), `zod` (v4). Nothing else.
 - `package-lock.json` committed; `node_modules` never committed.
-- Dev toolchain pinned to Node 24. Bun is fine for local installs/tests, but no `Bun.*` APIs in `src/`.
+- Dev toolchain pinned to Node 24: `oxlint`, `oxfmt`, `tsc`, `actionlint`, `lefthook`. No eslint/prettier.
+- Bun is fine for local installs/tests, but no `Bun.*` APIs in `src/`.
 - `check-dist` CI rebuilds and fails if `dist/` is stale.
 
 ## Inputs
@@ -24,7 +25,7 @@ Companion to `product.md`. This is the shape of the thing we build.
 | `transient` | no | `false` | Sets `transient_environment` on created deployments. |
 | `production` | no | `false` | Sets `production_environment` on created deployments. |
 | `reuse` | no | `true` | Reuse an existing (`environment`, `ref`, `group`) deployment instead of creating. |
-| `retire` | no | `true` on `finish` success | Mark prior owned deployments in scope `inactive`. |
+| `retire` | no | `true` | Mark prior owned deployments in scope `inactive`. Acts only on `finish` `success`. |
 | `retire-production` | no | `false` | Required to retire `production` deployments. |
 | `fail-on-error` | no | `true` | `false` continues across the target list, aggregating errors. |
 
@@ -50,10 +51,23 @@ Every deployment created carries:
 Scoping rules:
 
 - **Reuse**: match on `environment` + `ref` + `payload.group`, and only if `payload.managed_by === "touchdown"`.
-- **Retire** (`finish` success): same `environment` + `payload.group`, `payload.managed_by === "touchdown"`, excluding the current deployment id. Skipped entirely when `production` unless `retire-production: true`.
+- **Retire** (`finish` success): same `environment` + `payload.group`, `payload.managed_by === "touchdown"`, excluding the current deployment id. Skipped entirely unless `retire-production: true` when the targets being finished are `production`.
 - **Deactivate**: same `payload.group` + `payload.managed_by === "touchdown"`, across all environments.
 - A deployment whose payload is missing, unparseable, or foreign is never touched.
 - `v` is the schema version; a breaking payload change bumps it.
+
+### Lookup contract
+
+`finish` and `deactivate` always find their deployments by re-lookup, never from ids passed by the caller. They list deployments (server-filtered by `environment`/`ref` where available) and match client-side on the ownership stamp + `group`.
+
+- Callers never plumb ids between steps, jobs, or runs. `start` and `finish` stay decoupled; teardown-on-PR-close works because it re-discovers via `group`.
+- Reuse makes the match deterministic: exactly one current deployment per (`environment`, `ref`, `group`).
+- If more than one deployment matches, fail closed with an explicit ambiguity error rather than guessing.
+- The production guard keys on the `production` input of the targets being finished, not on the environment name string.
+
+### No post step
+
+v0 has no `runs.post` entrypoint. A post step would have to infer outcome from `job.status`, collapsing `skipped` and per-target nuance — the same context-inference F2 forbids. Callers drive `finish` explicitly. (A warn-only post that detects "start ran, finish never did" is deferred to final.)
 
 ## Behavior by mode
 
@@ -68,14 +82,14 @@ Scoping rules:
 
 ### `finish`
 
-1. Resolve prior deployments for each target via the ownership scope.
+1. Re-lookup prior deployments for each target via the ownership scope (see Lookup contract).
 2. Map `status` through the table below; post the terminal status to each target. On `success`, set `environment_url` and `log_url`, truncate description to 140.
 3. If `retire` and status is `success`, mark owned prior deployments in scope `inactive` (excluding current; production only with `retire-production`).
 4. Emit `deployments` and `retired`.
 
 ### `deactivate`
 
-1. Filter owned deployments by `payload.group`.
+1. Re-lookup owned deployments by `payload.group`.
 2. Post `inactive` to each. Zero matches → no-op, exit 0.
 3. Emit `retired`.
 
@@ -88,10 +102,21 @@ Explicit `status` input is authoritative; nothing is inferred from `steps.*.outc
 | `success` | `success` | Terminal, sets `environment_url`, triggers retire |
 | `failure` | `failure` | Terminal |
 | `error` | `error` | Terminal |
-| `cancelled` | `error` | Mapped (overridable) |
-| `skipped` | `error` | Mapped (overridable) |
+| `cancelled` | `error` | Hardcoded mapping |
+| `skipped` | `error` | Hardcoded mapping |
 
-Mapping table is documented and overridable. Fail-closed: anything unmapped or ambiguous posts `failure`/`error`, never `success`.
+The `cancelled`/`skipped` mapping is hardcoded in a pure `statusMap.ts` (no input to override it in v0). Fail-closed: anything unmapped or ambiguous posts `failure`/`error`, never `success`.
+
+## Exit codes
+
+The `status` input never affects the exit code. A `failure`/`error`/`cancelled`/`skipped` status is the action working correctly: the deployment carries the red badge, the step exits 0, and downstream steps still run.
+
+Only action-internal errors fail the step (API failures, validation, ambiguity, pagination cap):
+
+- `fail-on-error: true` (default): stop at the first error and `setFailed` immediately.
+- `fail-on-error: false`: attempt every target, still emit `deployments` (successes only) and `retired`, then `setFailed` with every indexed error on its own line (`targets[0]: 422 …`, `targets[2]: …`).
+
+There is no rollback: partial writes stand.
 
 ## Validation (reject, don't coerce)
 
@@ -121,26 +146,49 @@ Mapping table is documented and overridable. Fail-closed: anything unmapped or a
 ```
 action.yml
 src/
-  main.ts            # mode dispatch, fail-closed entry
-  inputs.ts          # parsing, targets schema, validation, truncation
-  github.ts          # Octokit client, paginated list/deploy helpers
-  modes/start.ts
-  modes/finish.ts
-  modes/deactivate.ts
+  main.ts            # wire adapters to the app, fail-closed entry
+  domain/            # pure, no toolkit/Octokit imports
+    config.ts        # input/output types
+    validation.ts    # zod schemas, truncate140, ref resolution
+    ownership.ts     # stamp/parse/match, payload v bump path
+    statusMap.ts     # hardcoded cancelled/skipped -> error
+    scope.ts         # reuse match, retire-set (minus current), production guard, pagination cap
+  ports/
+    deploymentStore.ts   # create / list / setStatus interface
+    io.ts                # getInput / setOutput / info / warning / fail
+  adapters/
+    octokitStore.ts      # only file importing @actions/github; pagination + cap + auto_inactive:false here
+    actionsIO.ts         # only file importing @actions/core
+  modes/
+    start.ts
+    finish.ts
+    deactivate.ts
   outputs.ts
-__tests__/           # unit, mocked Octokit
+__tests__/           # unit, mocked DeploymentStore
 __fixtures__/        # push / pull_request / workflow_dispatch / closed payloads
 dist/index.js
 .github/workflows/   # ci, check-dist
 README.md  LICENSE  package.json  package-lock.json  tsconfig.json
-eslint.config.*  actionlint.yml
+lefthook.yml  .oxlintrc.json  actionlint.yml
 ```
+
+Dependency rule: `domain` imports nothing from `adapters` (or the toolkit). `modes` orchestrate domain + ports. Only `adapters` touch `@actions/*` and Octokit. This keeps T1 unit tests on a narrow `DeploymentStore` mock instead of deep Octokit mocks.
 
 ## Testing
 
-- **Unit** (mocked Octokit): mode dispatch, validation errors before API calls, target parsing, truncation, URL checks, ref resolution per event fixture, pagination, reuse, ownership filtering, retire excludes current, production guard, fail-on-error paths, output shape.
+- **Unit** (mocked `DeploymentStore`): mode dispatch, validation errors before API calls, target parsing, truncation, URL checks, ref resolution per event fixture, pagination, reuse, ownership filtering, ambiguity fail-closed, retire excludes current, production guard, `fail-on-error` true/false paths, exit-code contract (status never fails the step), output shape.
 - **Integration** (scratch repo, manual/nightly): PR-timeline entry, View-deployment button, retire on second push, deactivate on close, concurrent-group isolation, multi-target. `nektos/act` is YAML smoke only.
-- **Lint**: `actionlint`, `eslint`, `tsc --noEmit`.
+- **Lint**: `actionlint` (workflow + `action.yml`), `oxlint`, `oxfmt --check`, `tsc --noEmit`. `lefthook` runs the fast checks pre-commit and the full set pre-push.
+
+## README requirements
+
+- Recipes: constant-env, per-PR-env, multi-app.
+- Migration notes from `bobheadxi/deployments`.
+- The required `if: always()` + explicit string-comparison shape for `finish`/`deactivate`:
+  - Same job: `status: ${{ steps.deploy.outcome == 'success' && 'success' || 'failure' }}`.
+  - Cross-job: `needs.<job>.result` on a job with `if: always()`.
+  - Warn explicitly against `||` fallbacks over `steps.*.outcome` (the `"skipped"` truthy bug).
+- `pull_request` usage only; warn against combining with `pull_request_target` + checkout.
 
 ## Distribution
 

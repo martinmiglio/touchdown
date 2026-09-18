@@ -29,7 +29,7 @@ Not a deployer. No build, no cloud/runner knowledge, no PR comments, no environm
 ### Functional
 
 - **F1** `start` creates one deployment per target for the resolved ref, then immediately posts `in_progress` with the run URL as `log_url` and a description. Honours `transient` / `production`.
-- **F2** `finish` posts a terminal status from the **explicit** `status` input — never inferred from step context. Maps `cancelled` / `skipped` → `error` via a documented, overridable table.
+- **F2** `finish` posts a terminal status from the **explicit** `status` input — never inferred from step context. `cancelled` / `skipped` map to `error` via a documented, hardcoded table.
 - **F3** On success, `finish` sets `environment_url` (validated absolute `http(s)` URL) and `log_url`; truncates `description` to 140 characters.
 - **F4** `deactivate` marks every owned deployment matching `group` `inactive`; idempotent (zero matches → no-op, exit 0).
 - **F5** On `finish` success, retires prior owned deployments matching scope, **excluding the current one**.
@@ -69,6 +69,6 @@ Not a deployer. No build, no cloud/runner knowledge, no PR comments, no environm
 
 - **T1** Unit tests (mocked API): all modes, error paths, truncation, URL validation, pagination cap, ownership filtering, multi-target.
 - **T2** Integration test on a real throwaway repo: PR-timeline entry, View-deployment button, retire-on-second-push, deactivate-on-close, C1 isolation.
-- **T3** Lint clean (`actionlint`, `eslint`, `tsc`).
+- **T3** Lint clean: `actionlint`, `oxlint`, `oxfmt --check`, `tsc --noEmit`, wired through lefthook.
 - **D1** README recipes: constant-env, per-PR-env, multi-app; migration notes from `bobheadxi/deployments`.
 - **D2** Marketplace readiness (branding, category, floating major tag) is a later step, not v0.
