@@ -23,7 +23,7 @@
   "devDependencies": {
     "@types/node": "24.13.5",
     "@vercel/ncc": "0.45.0",
-    "@vitest/coverage-v8": "5.0.1",
+    "@vitest/coverage-v8": "5.0.2",
     "lefthook": "2.1.14",
     "oxfmt": "0.68.0",
     "oxlint": "1.83.0",
