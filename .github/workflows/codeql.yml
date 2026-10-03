@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # github/codeql-action@v3
-      - uses: github/codeql-action/init@c20e34f438d671fc35777cc9820dd7adf8252874 # v3
+      - uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
         with:
           languages: javascript-typescript
       # github/codeql-action@v3
