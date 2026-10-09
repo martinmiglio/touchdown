@@ -24,7 +24,7 @@
     "@types/node": "24.13.5",
     "@vercel/ncc": "0.45.0",
     "@vitest/coverage-v8": "5.0.1",
-    "lefthook": "2.1.14",
+    "lefthook": "2.1.17",
     "oxfmt": "0.71.0",
     "oxlint": "1.83.0",
     "typescript": "5.9.3",
