@@ -18,4 +18,4 @@ jobs:
         with:
           languages: javascript-typescript
       # github/codeql-action@v3
-      - uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+      - uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v3
