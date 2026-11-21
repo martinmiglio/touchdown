@@ -8,7 +8,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc --noEmit",
-    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt && node scripts/emit-dist-package.mjs",
+    "compile": "tsc -p tsconfig.build.json",
+    "package": "npm run compile && ncc build .build/index.js -o dist --source-map --license licenses.txt && node scripts/emit-dist-package.mjs",
     "lint": "npm run build && oxlint src __tests__ && oxfmt --check src __tests__",
     "format": "oxfmt src __tests__",
     "test": "vitest run",
@@ -27,7 +28,7 @@
     "lefthook": "2.1.17",
     "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "5.0.1"
   },
   "engines": {

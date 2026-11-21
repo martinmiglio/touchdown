@@ -32391,7 +32391,7 @@ function getIDToken(aud) {
  */
 
 //# sourceMappingURL=core.js.map
-;// CONCATENATED MODULE: ./src/adapters/actionsIO.ts
+;// CONCATENATED MODULE: ./.build/adapters/actionsIO.js
 
 function createIO() {
     return {
@@ -37412,7 +37412,7 @@ function getOctokit(token, options, ...additionalPlugins) {
     return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
 //# sourceMappingURL=github.js.map
-;// CONCATENATED MODULE: ./src/domain/errors.ts
+;// CONCATENATED MODULE: ./.build/domain/errors.js
 /** Thrown before any API call. `issues` are indexed, e.g. "targets[1].url: must be absolute http(s)". */
 class ValidationError extends Error {
     issues;
@@ -37446,7 +37446,7 @@ class PaginationCapError extends Error {
     }
 }
 
-;// CONCATENATED MODULE: ./src/domain/ownership.ts
+;// CONCATENATED MODULE: ./.build/domain/ownership.js
 const MANAGED_BY = "touchdown";
 const PAYLOAD_VERSION = 1;
 /** Payload attached to every deployment we create. */
@@ -37492,7 +37492,7 @@ function isOwnedBy(payload, group) {
     return group === undefined || stamp.group === group;
 }
 
-;// CONCATENATED MODULE: ./src/domain/scope.ts
+;// CONCATENATED MODULE: ./.build/domain/scope.js
 
 
 const PAGE_SIZE = 100;
@@ -37526,7 +37526,7 @@ function selectDeactivations(listed, group) {
     return listed.filter((d) => isOwnedBy(d.payload, group));
 }
 
-;// CONCATENATED MODULE: ./src/adapters/retry.ts
+;// CONCATENATED MODULE: ./.build/adapters/retry.js
 const DEFAULT_ATTEMPTS = 4;
 const DEFAULT_MAX_DELAY_MS = 30_000;
 const DEFAULT_MAX_RATE_LIMIT_DELAY_MS = 60_000;
@@ -37621,7 +37621,7 @@ async function withRetry(fn, opts) {
     throw lastError ?? new Error("withRetry: no attempts made");
 }
 
-;// CONCATENATED MODULE: ./src/adapters/octokitStore.ts
+;// CONCATENATED MODULE: ./.build/adapters/octokitStore.js
 
 
 
@@ -47274,7 +47274,7 @@ function preprocess(fn, schema) {
     });
 }
 
-;// CONCATENATED MODULE: ./src/domain/validation.ts
+;// CONCATENATED MODULE: ./.build/domain/validation.js
 
 
 /** Truncate to 140 chars on a code-point boundary. Returns the value and whether it was cut. */
@@ -47566,7 +47566,7 @@ function parseInputs(args) {
     };
 }
 
-;// CONCATENATED MODULE: ./src/modes/attempt.ts
+;// CONCATENATED MODULE: ./.build/modes/attempt.js
 /**
  * Runs one per-target unit of work. On error with `failOnError`, throws an
  * indexed `Error` (chaining the original via `cause`) so the mode aborts and
@@ -47597,7 +47597,7 @@ function warnIfTruncatedDescription(io, index, environment, descriptionTruncated
     }
 }
 
-;// CONCATENATED MODULE: ./src/modes/deactivate.ts
+;// CONCATENATED MODULE: ./.build/modes/deactivate.js
 
 
 async function runDeactivate(config, store, io) {
@@ -47622,7 +47622,7 @@ async function runDeactivate(config, store, io) {
     return result;
 }
 
-;// CONCATENATED MODULE: ./src/domain/statusMap.ts
+;// CONCATENATED MODULE: ./.build/domain/statusMap.js
 function statusMap_assertNever(value) {
     throw new Error(`unreachable status: ${String(value)}`);
 }
@@ -47647,7 +47647,7 @@ function toDeploymentState(status) {
     }
 }
 
-;// CONCATENATED MODULE: ./src/modes/finish.ts
+;// CONCATENATED MODULE: ./.build/modes/finish.js
 
 
 
@@ -47725,7 +47725,7 @@ async function runFinish(config, context, store, io) {
     return result;
 }
 
-;// CONCATENATED MODULE: ./src/modes/start.ts
+;// CONCATENATED MODULE: ./.build/modes/start.js
 
 
 
@@ -47787,14 +47787,14 @@ async function runStart(config, context, store, io) {
     return result;
 }
 
-;// CONCATENATED MODULE: ./src/outputs.ts
+;// CONCATENATED MODULE: ./.build/outputs.js
 /** Writes `deployments` and `retired` as JSON strings. Never writes `errors` as an output. */
 function writeOutputs(io, result) {
     io.setOutput("deployments", JSON.stringify(result.deployments));
     io.setOutput("retired", JSON.stringify(result.retired));
 }
 
-;// CONCATENATED MODULE: ./src/main.ts
+;// CONCATENATED MODULE: ./.build/main.js
 
 
 
@@ -47881,7 +47881,7 @@ async function run() {
     }
 }
 
-;// CONCATENATED MODULE: ./src/index.ts
+;// CONCATENATED MODULE: ./.build/index.js
 // ncc entrypoint: bundles src/main.ts's run() so tests can import and await it directly.
 
 void run();
