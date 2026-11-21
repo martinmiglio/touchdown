@@ -5,14 +5,14 @@ Companion to `product.md`. This is the shape of the thing we build.
 ## Runtime & packaging
 
 - JavaScript action: `runs.using: node24`, `main: dist/index.js`.
-- TypeScript source in `src/`, bundled with `@vercel/ncc@0.45.0` to a single committed `dist/index.js`: `ncc build src/index.ts -o dist --source-map --license licenses.txt`.
+- TypeScript source in `src/` is emitted to `.build/` with `tsc -p tsconfig.build.json`, then bundled with `@vercel/ncc@0.45.0` to a single committed `dist/index.js`: `ncc build .build/index.js -o dist --source-map --license licenses.txt`. ncc's TypeScript loader predates the TypeScript 7 native API, so it bundles emitted JavaScript rather than TypeScript source.
 - `"type": "module"`; `tsconfig` `module: NodeNext`, `moduleResolution: NodeNext`, `target: ES2022`.
 - Commit `dist/package.json` = `{"type":"module"}`.
 - **No top-level `await`: `src/index.ts` is the entrypoint and does nothing but `void run()`; `src/main.ts` exports `run()` and has no top-level await.**
 - Contingency: if Gate C cannot smoke-run `dist/index.js`, flip to Option B (`@actions/core@2.0.3`, `@actions/github@8.0.1`, `module: commonjs`, no `type: module`) — a config flip, not a rewrite.
 - Runtime dependencies, exact-pinned: `@actions/core`, `@actions/github` (Octokit), `zod` (v4). Nothing else.
 - `package-lock.json` committed; `node_modules` never committed.
-- Dev pins: ncc 0.45.0, typescript 5.9.3, @types/node 24.13.5, oxlint 1.83.0, oxfmt 0.68.0, lefthook 2.1.14, vitest 5.0.1, actionlint 1.7.12, action-validator 0.9.0.
+- Dev pins: ncc 0.45.0, typescript 7.0.2, @types/node 26.6.4, oxlint 1.87.0, oxfmt 0.72.0, lefthook 2.1.17, vitest 5.0.1, actionlint 1.7.12, action-validator 0.9.0.
 - Dev toolchain pinned to Node 24: `oxlint`, `oxfmt`, `tsc`, `actionlint`, `action-validator`, `lefthook`. No eslint/prettier.
 - Bun is fine for local installs/tests, but no `Bun.*` APIs in `src/`.
 - `check-dist` CI rebuilds and fails if `dist/` is stale.
